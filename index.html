@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+	<title>Download Monitor POC</title>
+</head>
+<body>
+	<section>
+		<h1>AJAX</h1>
+		<a href="/file" download="ajaxfile" id="ajaxDownload">Prepare via AJAX</a>
+		<span id="ajaxMonitor"></span>
+	</section>
+
+	<section>
+		<h1>Link Tag</h1>
+		<a href="/file" download="linkfile" id="linkDownload">Download via Link</a>
+		<span id="linkMonitor"></span>
+	</section>
+
+	<section>
+		<h1>Resourse Timing</h1>
+		<a href="/file" download="resourcefile" id="resourceDownload">Download via Resource Timing</a>
+		<span id="resourceMonitor"></span>
+	</section>
+
+	<script type="text/javascript">
+		var ajaxMonitor = document.getElementById('ajaxMonitor');
+		document.getElementById('ajaxDownload').addEventListener(
+				'click',
+				function(e) {
+					e.preventDefault();
+					var href = e.target.getAttribute('href');
+
+					var req = new XMLHttpRequest();
+
+					req.addEventListener(
+							'load',
+							function() {
+								var url = URL.createObjectURL(new Blob([this.response]));
+								ajaxMonitor.innerHTML = 'Download ready, <a href="' + url + '" download="ajaxfile">download</a>';
+							}
+					);
+
+					req.addEventListener(
+							'progress',
+							function(e) {
+								ajaxMonitor.innerText = 'Preparing ' + Math.floor(e.loaded / e.total * 100) + '%';
+							}
+					);
+
+					req.open("GET", href);
+					req.send();
+				}
+		);
+
+		var linkMonitor = document.getElementById('linkMonitor');
+		document.getElementById('linkDownload').addEventListener(
+			'click',
+			function(e) {
+				var href = e.target.getAttribute('href');
+				linkMonitor.innerText = 'Download started';
+
+				var head = document.querySelector('head');
+
+				var link = document.createElement('LINK');
+				link.setAttribute('href', href);
+				link.setAttribute('rel', 'stylesheet');
+
+				function onLinkLoad() {
+					head.removeChild(link);
+					linkMonitor.innerText = 'Download complete';
+				}
+
+				link.addEventListener('load', onLinkLoad);
+				link.addEventListener('error', onLinkLoad);
+
+				head.appendChild(link);
+			}
+		);
+
+		var resourceMonitor = document.getElementById('resourceMonitor');
+		document.getElementById('resourceDownload').addEventListener(
+			'click',
+			function(e) {
+				var href = e.target.getAttribute('href');
+				resourceMonitor.innerText = 'Download started';
+
+				var img = document.createElement('IMG');
+				img.setAttribute('src', href);
+				img.setAttribute('style', 'height: 0; width: 0;');
+
+				document.body.appendChild(img);
+
+				var pollInterval = setInterval(
+						function() {
+							var entries = performance.getEntries();
+							for (var i = 0; i < entries.length; i++) {
+								var entry = entries[i];
+								if (entry.entryType === 'resource' && entry.name.indexOf('/file') === entry.name.length - '/file'.length) {
+									document.body.removeChild(img);
+									clearInterval(pollInterval);
+									resourceMonitor.innerText = 'Download complete';
+								}
+							}
+						},
+						100
+				);
+			}
+		);
+	</script>
+</body>
+</html>
